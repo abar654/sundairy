@@ -5,6 +5,7 @@ import android.app.Application;
 
 import androidx.arch.core.util.Function;
 import androidx.lifecycle.AndroidViewModel;
+import androidx.lifecycle.LifecycleOwner;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.Transformations;
@@ -32,28 +33,49 @@ public class DiaryViewModel extends AndroidViewModel {
         super(application);
         mSessionRepository = new SessionRepository(application);
         mSessionRecorder = new SessionRecorder(mSessionRepository);
-
-        // TODO: Correctly process the sessions in the current weekDisplay time period
-        mWeekTimes = Transformations.map(mSessionRepository.getAllSessions(), new Function<List<Session>, ArrayList<Integer>>() {
-            @Override
-            public ArrayList<Integer> apply(List<Session> sessions) {
-                for(Session session: sessions) {
-                    System.out.println(session);
-                }
-                return new ArrayList<Integer>(Arrays.asList(6000000, 0, 100000, 1200000, 1500000, 0, 200000));
-            }
-        });
+        mWeekDisplayStartDate = new MutableLiveData<>(
+                CalendarUtils.getMillisForStartOfWeek(Calendar.getInstance().getTimeInMillis()));
     }
 
     public LiveData<Boolean> isRecording() {
         return mSessionRecorder.isRecording();
     }
 
-    public LiveData<ArrayList<Integer>> getWeekTimes() {
+    public LiveData<ArrayList<Integer>> refreshWeekTimes(LifecycleOwner owner) {
+        if (mWeekTimes != null) {
+            mWeekTimes.removeObservers(owner);
+        }
+
+        final long start = mWeekDisplayStartDate.getValue();
+        final long end = start + 7 * 24 * 60 * 60 * 1000;
+
+        mWeekTimes = Transformations.map(
+                mSessionRepository.getSessionsStartingBetween(start, end),
+                new Function<List<Session>, ArrayList<Integer>>() {
+
+            @Override
+            public ArrayList<Integer> apply(List<Session> sessions) {
+
+                Integer[] weekTimes = {0, 0, 0, 0, 0, 0, 0};
+
+                for(Session session: sessions) {
+                    int dayIndex = (int) (session.getStartTime() - start) / (24 * 60 * 60 * 1000);
+                    weekTimes[dayIndex] += (int) (session.getEndTime() - session.getStartTime());
+                }
+
+                return new ArrayList<Integer>(Arrays.asList(weekTimes));
+            }
+
+        });
+
         return mWeekTimes;
     }
 
-    public LiveData<Integer> getTodayTotalTime() {
+    public LiveData<Integer> refreshTodayTotalTime(LifecycleOwner owner) {
+        if (mCurrentDayTotalTime != null) {
+            mCurrentDayTotalTime.removeObservers(owner);
+        }
+
         Calendar now = Calendar.getInstance();
 
         if (mLastRefreshed == null
@@ -83,6 +105,10 @@ public class DiaryViewModel extends AndroidViewModel {
         return mCurrentDayTotalTime;
     }
 
+    MutableLiveData<Long> getWeekDisplayStartDate() {
+        return mWeekDisplayStartDate;
+    }
+
     public void onSessionButtonClick() {
         if (isRecording().getValue()) {
             mSessionRecorder.stopSession();
@@ -91,8 +117,23 @@ public class DiaryViewModel extends AndroidViewModel {
         }
     }
 
-    private ArrayList<Integer> processWeekTimes() {
-        return new ArrayList<Integer>(Arrays.asList(6000000, 0, 100000, 1200000, 1500000, 0, 200000));
+    public void displayPreviousWeek() {
+        adjustDisplayWeek(false);
+    }
+
+    public void displayNextWeek() {
+        adjustDisplayWeek(true);
+    }
+
+    private void adjustDisplayWeek(boolean forward) {
+        int adjustDays = 7;
+        if (!forward) {
+            adjustDays *= -1;
+        }
+        Calendar newDay = Calendar.getInstance();
+        newDay.setTimeInMillis(mWeekDisplayStartDate.getValue());
+        newDay.add(Calendar.DATE, adjustDays);
+        mWeekDisplayStartDate.setValue(newDay.getTimeInMillis());
     }
 
 }

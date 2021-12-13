@@ -52,6 +52,10 @@ public abstract class SessionRoomDatabase extends RoomDatabase {
                     Session newSession = new Session(1638806215280L, 1638806335280L);
                     dao.insertSession(newSession);
 
+                    // 6/12 - an extra 15 mins
+                    newSession = new Session(1638814921691L, 1638815821691L);
+                    dao.insertSession(newSession);
+
                     // 8/12 - 10 mins
                     newSession = new Session(1638977215280L, 1638977815280L);
                     dao.insertSession(newSession);

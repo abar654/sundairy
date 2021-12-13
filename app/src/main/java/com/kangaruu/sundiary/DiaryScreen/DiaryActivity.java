@@ -16,6 +16,7 @@ import com.kangaruu.sundiary.R;
 import com.kangaruu.sundiary.Shared.CalendarUtils;
 
 import java.util.ArrayList;
+import java.util.Calendar;
 
 /**
  * The activity for a single page app which allows user to start/stop sun sessions, view their
@@ -28,8 +29,8 @@ public class DiaryActivity extends AppCompatActivity {
     private DiaryViewModel mDiaryViewModel;
     private Toast mToast;
 
-    private Button mSessionButton;
     private TextView mTimeDisplay;
+    private TextView mDateDisplay;
     private LinearLayout mSunMetersLayout;
 
     @Override
@@ -41,8 +42,8 @@ public class DiaryActivity extends AppCompatActivity {
         mDiaryViewModel = new ViewModelProvider(this).get(DiaryViewModel.class);
 
         // Set up the session button
-        mSessionButton = findViewById(R.id.session_button);
-        mSessionButton.setOnClickListener(new View.OnClickListener() {
+        final Button sessionButton = findViewById(R.id.session_button);
+        sessionButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 mDiaryViewModel.onSessionButtonClick();
@@ -52,9 +53,9 @@ public class DiaryActivity extends AppCompatActivity {
             @Override
             public void onChanged(Boolean isRecording) {
                 if (isRecording) {
-                    mSessionButton.setText(R.string.stop_button_label);
+                    sessionButton.setText(R.string.stop_button_label);
                 } else {
-                    mSessionButton.setText(R.string.start_button_label);
+                    sessionButton.setText(R.string.start_button_label);
                 }
             }
         });
@@ -64,28 +65,49 @@ public class DiaryActivity extends AppCompatActivity {
 
         // Set up the sun icons for the week
         mSunMetersLayout = findViewById(R.id.sun_meters);
-        mDiaryViewModel.getWeekTimes().observe(this, new Observer<ArrayList<Integer>>() {
+
+        // Set up the date bar.
+        ImageButton prevButton = findViewById(R.id.prev_button);
+        prevButton.setOnClickListener(new View.OnClickListener() {
             @Override
-            public void onChanged(ArrayList<Integer> weekTimes) {
-                updateSunMeters(weekTimes);
+            public void onClick(View v) {
+                mDiaryViewModel.displayPreviousWeek();
             }
         });
 
-        // TODO: Set up the date bar.
-        //       Buttons should cause weekDisplayStartDate to change.
-        //       Text should update to show the start/end days of the week by observing weekDisplayStartDate.
-        //       May need to call getWeekTimes() and reobserve each time weekDisplayStartDate changes.
+        ImageButton nextButton = findViewById(R.id.next_button);
+        nextButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                mDiaryViewModel.displayNextWeek();
+            }
+        });
+
+        mDateDisplay = findViewById(R.id.date_display);
+        mDiaryViewModel.getWeekDisplayStartDate().observe(this, new Observer<Long>() {
+            @Override
+            public void onChanged(final Long startOfWeek) {
+                updateDateDisplay(startOfWeek);
+                mDiaryViewModel.refreshWeekTimes(DiaryActivity.this)
+                        .observe(DiaryActivity.this, new Observer<ArrayList<Integer>>() {
+                    @Override
+                    public void onChanged(ArrayList<Integer> weekTimes) {
+
+                        System.out.println("New week! " + weekTimes);
+
+                        updateSunMeters(weekTimes, startOfWeek);
+                    }
+                });
+            }
+        });
 
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        // Remove any observers for the total time
-        mDiaryViewModel.getTodayTotalTime().removeObservers(this);
-
         // Re-observe in case the day has changed since the view model was created.
-        mDiaryViewModel.getTodayTotalTime().observe(this, new Observer<Integer>() {
+        mDiaryViewModel.refreshTodayTotalTime(this).observe(this, new Observer<Integer>() {
             @Override
             public void onChanged(Integer timeToday) {
                 mTimeDisplay.setText(CalendarUtils.convertMillisToTimeString(timeToday));
@@ -93,7 +115,29 @@ public class DiaryActivity extends AppCompatActivity {
         });
     }
 
-    private void updateSunMeters(ArrayList<Integer> weekTimes) {
+    private void updateDateDisplay(Long startOfWeek) {
+        long now = Calendar.getInstance().getTimeInMillis();
+        System.out.println(startOfWeek + " : " + CalendarUtils.getMillisForStartOfWeek(now));
+        if (startOfWeek == CalendarUtils.getMillisForStartOfWeek(now)) {
+            mDateDisplay.setText(R.string.present_week);
+        } else {
+            Calendar startDay = Calendar.getInstance();
+            startDay.setTimeInMillis(startOfWeek);
+            Calendar endDay = Calendar.getInstance();
+            endDay.setTimeInMillis(startOfWeek);
+
+            endDay.add(Calendar.DATE, 6);
+
+            mDateDisplay.setText(String.format("%d/%d - %d/%d",
+                    startDay.get(Calendar.DAY_OF_MONTH), startDay.get(Calendar.MONTH) + 1,
+                    endDay.get(Calendar.DAY_OF_MONTH), endDay.get(Calendar.MONTH) + 1));
+        }
+    }
+
+    private void updateSunMeters(ArrayList<Integer> weekTimes, Long startOfWeek) {
+        Calendar currentDay = Calendar.getInstance();
+        currentDay.setTimeInMillis(startOfWeek);
+
         for(int i = 0; i < mSunMetersLayout.getChildCount(); i++) {
             ImageButton sunMeter = (ImageButton) mSunMetersLayout.getChildAt((i));
 
@@ -110,8 +154,10 @@ public class DiaryActivity extends AppCompatActivity {
                 sunMeter.setImageResource(R.drawable.ic_sun_100);
             }
 
-            // TODO: Update string to be form "21/11 - 00:21:23" i.e. using DATE!
-            final String message = "Time - " + CalendarUtils.convertMillisToTimeString(weekTimes.get(i));
+            final String message = String.format("%d/%d - ",
+                    currentDay.get(Calendar.DAY_OF_MONTH), currentDay.get(Calendar.MONTH) + 1)
+                    + CalendarUtils.convertMillisToTimeString(weekTimes.get(i));
+
             sunMeter.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
@@ -122,6 +168,8 @@ public class DiaryActivity extends AppCompatActivity {
                     mToast.show();
                 }
             });
+
+            currentDay.add(Calendar.DATE, 1);
         }
     }
 

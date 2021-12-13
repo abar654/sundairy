@@ -21,4 +21,13 @@ public class CalendarUtils {
         return String.format("%02d:%02d:%02d", hours, minutes, seconds);
     }
 
+    public static long getMillisForStartOfWeek(long millis) {
+        Calendar cal = Calendar.getInstance();
+        cal.setTimeInMillis(millis);
+        while (cal.get(Calendar.DAY_OF_WEEK) != Calendar.MONDAY) {
+            cal.add(Calendar.DATE, -1);
+        }
+        return getMillisForStartOfDay(cal.getTimeInMillis());
+    }
+
 }
