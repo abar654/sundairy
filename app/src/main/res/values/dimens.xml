@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="diary_title_margin_top">100dp</dimen>
+    <dimen name="diary_title_text_size">80sp</dimen>
+    <dimen name="button_text_size">30sp</dimen>
+    <dimen name="button_padding_x">45dp</dimen>
+    <dimen name="button_padding_top">10dp</dimen>
+    <dimen name="button_padding_bottom">15dp</dimen>
+    <dimen name="time_label_text_size">30sp</dimen>
+    <dimen name="time_display_text_size">60sp</dimen>
+    <dimen name="sun_meters_margin_x">20dp</dimen>
+    <dimen name="date_display_padding_x">15dp</dimen>
+    <dimen name="date_bar_margin_bottom">50dp</dimen>
+    <dimen name="sun_meters_margin_bottom">10dp</dimen>
+    <dimen name="time_label_margin_bottom">30dp</dimen>
+    <dimen name="time_display_margin_bottom">30dp</dimen>
+</resources>
